@@ -170,7 +170,7 @@ func (sb *StatusBar) updateTextParts() {
 
 	sb.leftText = strings.Join(parts, " | ")
 
-	sb.rightText = fmt.Sprintf("%s v%s", config.AppName, config.Version)
+	sb.rightText = fmt.Sprintf("%s v%s", config.AppName, config.Version())
 }
 
 func (sb *StatusBar) formatRSS(b uint64) string {

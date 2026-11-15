@@ -135,7 +135,7 @@ func (h *ToolsHandler) handleInitialize(params json.RawMessage) (interface{}, er
 		},
 		"serverInfo": map[string]interface{}{
 			"name":         "emed",
-			"version":      config.Version,
+			"version":      config.Version(),
 			"instructions": instructions,
 		},
 	}, nil

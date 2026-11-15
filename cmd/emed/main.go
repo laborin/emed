@@ -45,7 +45,7 @@ func main() {
 		return
 	}
 	if opts.showVersion {
-		fmt.Printf("%s %s\n", config.AppName, config.Version)
+		fmt.Printf("%s %s\n", config.AppName, config.Version())
 		return
 	}
 
@@ -239,7 +239,7 @@ func parseCLIArgs(args []string) (cliOptions, error) {
 }
 
 func printUsage(w io.Writer) {
-	fmt.Fprintf(w, "%s %s\n", config.AppName, config.Version)
+	fmt.Fprintf(w, "%s %s\n", config.AppName, config.Version())
 	fmt.Fprintf(w, "Usage: emed [options] [path]\n\n")
 	fmt.Fprintln(w, "Options:")
 	fmt.Fprintln(w, "  -c, --claude       Launch Claude Code on startup")
