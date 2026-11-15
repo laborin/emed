@@ -10,7 +10,7 @@ Planned work, in order. Each item should become a GitHub issue when somebody sta
 - [x] Toolchain pinned in `go.mod` (go1.26.11, it fixes stdlib vulnerabilities reported by govulncheck).
 - [x] Docs in the repo: CONTRIBUTING, ARCHITECTURE, this roadmap, AGENTS.md.
 - [x] Windows dropped officially (the code is Unix only).
-- [ ] Branch protection on `main`, squash merge only, delete branch on merge.
+- [x] Branch protection on `main` (PR + 1 code owner review + green checks, linear history, no force push; admins can bypass), squash merge only, delete branch on merge.
 - [ ] Tag `v0.5.0` and publish the first release with binaries.
 
 ## Phase 1: Fixes
