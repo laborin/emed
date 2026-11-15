@@ -15,7 +15,7 @@ Planned work, in order. Each item should become a GitHub issue when somebody sta
 
 ## Phase 1: Fixes
 
-- [ ] Save errors are ignored silently (`internal/ui/editor.go`, `saveCurrentFile`): show them to the user. Risk of data loss.
+- [ ] Save errors are ignored silently (`internal/ui/editor.go`, `SaveCurrentFile`): show them to the user. Risk of data loss.
 - [ ] New buffers without path can not be saved: add a "Save as" dialog.
 - [ ] Handle `SIGHUP` (SSH disconnect, terminal closed): today emed dies without cleanup, leaving the Claude lock file and not saving the session.
 - [ ] Possible emoji width bug in the file tree (rows with 📂 📄 🖼️ shift the border one column, seen inside tmux). Confirm in a real terminal.
