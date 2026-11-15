@@ -36,7 +36,7 @@ The terminal emulator has probably been the most fun and the hardest part to imp
 - [x] Deeper Claude Code integration: diff approval modal, multiple sessions at the same time, session info on each diff.
 - [x] Terminal emulation hardening: wide chars (CJK/emoji), utf8 edge cases, clean scrollback history, system bell with blinking tab titles.
 - [x] Per project terminal starters (F12) and session restore of open editor tabs.
-- [ ] ???
+- [ ] Next steps are in [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Screenshots
 Emed's initial view:
@@ -170,20 +170,26 @@ Both features only exist in project mode, single file mode does not create any `
 - Key handling can behave different depending on terminal emulator and OS.
 - Claude Code integration works, but it is still evolving and may break between versions.
 
+## Installing
+Download the binary for your platform from the [releases page](https://github.com/laborin/emed/releases) (Linux and macOS, amd64 and arm64), or build it with Go:
+
+```sh
+go install github.com/laborin/emed/cmd/emed@latest
+```
+
+Emed runs on Linux and macOS. Windows is not supported (the embedded terminal and some file APIs are Unix only).
+
 ## Building
+You need the Go version declared in `go.mod`; with a recent Go installed, the right toolchain is downloaded automatically.
 
-I added a Makefile to make building, debugging and testing easier. Here's how to use the basics:
-
-- `make` or `make build` - builds the emed binary
+- `make` or `make build` - builds the emed binary, with the version taken from the latest git tag
 - `make install` - builds and installs to /usr/local/bin (needs sudo)
-- `make clean` - removes the binary and build artifacts
+- `make build-all` - cross builds for Linux and macOS (amd64 and arm64) into `build/`
 - `make dev` - builds with debug symbols for development
+- `make help` - lists all the targets
 
-For cross-platform builds:
-- `make build-linux`
-- `make build-darwin` (MacOS, both Intel and Apple Silicon)
-- `make build-windows`
-- `make build-all`
+## Contributing
+Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) for the workflow (branches, commits, pull requests, tests) and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for an overview of the code. Planned work is in [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## FAQ
 
