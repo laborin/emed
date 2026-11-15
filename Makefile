@@ -1,98 +1,113 @@
-.PHONY: build clean test lint run install
+.PHONY: all build build-all run install clean test test-race test-coverage bench fmt fmt-check vet lint lint-all vuln tidy-check ci deps deps-check dev help
 
-# Binary name
-BINARY_NAME=emed
-MAIN_PATH=cmd/emed/main.go
-
-# Build variables
-BUILD_DIR=build
+BINARY_NAME := emed
+MAIN_PATH   := ./cmd/emed
+BUILD_DIR   := build
 INSTALL_PATH ?= /usr/local/bin
 
-# Go commands
-GOCMD=go
-GOBUILD=$(GOCMD) build
-GOCLEAN=$(GOCMD) clean
-GOTEST=$(GOCMD) test
-GOGET=$(GOCMD) get
-GOMOD=$(GOCMD) mod
-GOVET=$(GOCMD) vet
-GOFMT=gofmt
+# Pinned tool versions, keep in sync with .github/workflows/ci.yml
+GOLANGCI_LINT_VERSION := v2.15.0
+GOVULNCHECK_VERSION   := v1.9.0
 
-# Build flags
-LDFLAGS=-ldflags "-s -w"
+GOLANGCI_LINT := go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
+GOVULNCHECK   := go run golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION)
 
-# Default target
+# Version comes from the nearest git tag (v0.5.0, v0.5.0-3-gabc123, ...), "dev" without tags
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+LDFLAGS := -ldflags "-s -w -X github.com/laborin/emed/internal/config.version=$(VERSION)"
+
+# Lint only new code by default, the existing debt is tracked in docs/ROADMAP.md
+LINT_BASE ?= origin/main
+
 all: build
 
-# Build the binary
+## build: build the binary for the current platform
 build:
-	$(GOBUILD) $(LDFLAGS) -o $(BINARY_NAME) $(MAIN_PATH)
+	go build $(LDFLAGS) -o $(BINARY_NAME) $(MAIN_PATH)
 
-# Build for multiple platforms
-build-all: build-linux build-darwin build-windows
+## build-all: cross compile for every supported platform (linux, darwin)
+build-all:
+	GOOS=linux  GOARCH=amd64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64  $(MAIN_PATH)
+	GOOS=linux  GOARCH=arm64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-linux-arm64  $(MAIN_PATH)
+	GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 $(MAIN_PATH)
+	GOOS=darwin GOARCH=arm64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-arm64 $(MAIN_PATH)
 
-build-linux:
-	GOOS=linux GOARCH=amd64 $(GOBUILD) $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 $(MAIN_PATH)
-
-build-darwin:
-	GOOS=darwin GOARCH=amd64 $(GOBUILD) $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 $(MAIN_PATH)
-	GOOS=darwin GOARCH=arm64 $(GOBUILD) $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-arm64 $(MAIN_PATH)
-
-build-windows:
-	GOOS=windows GOARCH=amd64 $(GOBUILD) $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.exe $(MAIN_PATH)
-
-# Run the application
+## run: build and run emed in the current directory
 run: build
 	./$(BINARY_NAME)
 
-# Install the binary
+## install: install the binary in INSTALL_PATH (default /usr/local/bin)
 install: build
 	sudo install -d $(INSTALL_PATH)
 	sudo install -m 755 $(BINARY_NAME) $(INSTALL_PATH)/$(BINARY_NAME)
 
-# Clean build artifacts
+## clean: remove build artifacts
 clean:
-	$(GOCLEAN)
-	rm -f $(BINARY_NAME)
+	go clean
+	rm -f $(BINARY_NAME) coverage.out coverage.html
 	rm -rf $(BUILD_DIR)
 
-# Run tests
+## test: run the unit tests
 test:
-	$(GOTEST) -v ./...
+	go test ./...
 
-# Run tests with coverage
+## test-race: run the tests with the race detector, like CI does
+test-race:
+	go test -race ./...
+
+## test-coverage: generate coverage.html
 test-coverage:
-	$(GOTEST) -v -cover -coverprofile=coverage.out ./...
-	$(GOCMD) tool cover -html=coverage.out -o coverage.html
+	go test -cover -coverprofile=coverage.out ./...
+	go tool cover -html=coverage.out -o coverage.html
 
-# Run benchmarks
+## bench: run benchmarks
 bench:
-	$(GOTEST) -bench=. -benchmem ./...
+	go test -bench=. -benchmem ./...
 
-# Format code
+## fmt: format all the code
 fmt:
-	$(GOFMT) -s -w .
+	gofmt -s -w .
 
-# Vet code
+## fmt-check: fail if some file is not formatted
+fmt-check:
+	@out="$$(gofmt -s -l .)"; if [ -n "$$out" ]; then echo "Not formatted:"; echo "$$out"; exit 1; fi
+
+## vet: run go vet
 vet:
-	$(GOVET) ./...
+	go vet ./...
 
-# Lint code (requires golangci-lint)
+## lint: run golangci-lint on the changes since LINT_BASE (origin/main)
 lint:
-	golangci-lint run
+	$(GOLANGCI_LINT) run --new-from-merge-base=$(LINT_BASE) ./...
 
-# Update dependencies
+## lint-all: run golangci-lint on all the code, including old issues
+lint-all:
+	$(GOLANGCI_LINT) run ./...
+
+## vuln: check dependencies and stdlib for known vulnerabilities
+vuln:
+	$(GOVULNCHECK) ./...
+
+## tidy-check: fail if go.mod or go.sum are not tidy
+tidy-check:
+	go mod tidy -diff
+
+## ci: run the same checks than CI, run it before open a pull request
+ci: fmt-check tidy-check vet lint test-race build
+
+## deps: download and tidy dependencies
 deps:
-	$(GOMOD) download
-	$(GOMOD) tidy
+	go mod download
+	go mod tidy
 
-# Check for dependency updates
+## deps-check: list available dependency updates
 deps-check:
-	$(GOCMD) list -u -m all
+	go list -u -m all
 
-# Development build with debug symbols
+## dev: build with debug symbols, for dlv
 dev:
-	$(GOBUILD) -gcflags="all=-N -l" -o $(BINARY_NAME) $(MAIN_PATH)
+	go build -gcflags="all=-N -l" -o $(BINARY_NAME) $(MAIN_PATH)
 
-# Quick check (format, vet, build)
-check: fmt vet build
+## help: show this help
+help:
+	@grep -E '^## ' $(MAKEFILE_LIST) | sed 's/^## /  /'
