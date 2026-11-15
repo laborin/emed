@@ -2,6 +2,8 @@ module github.com/laborin/emed
 
 go 1.23.2
 
+toolchain go1.26.11
+
 require (
 	github.com/alecthomas/chroma/v2 v2.20.0
 	github.com/creack/pty v1.1.24
