@@ -158,6 +158,9 @@ func Replace(lines [][]rune, match Match, replacement string) [][]rune {
 	}
 
 	line := lines[row]
+	if !validColumns(match.StartCol, match.EndCol, len(line)) {
+		return lines
+	}
 	replacementRunes := []rune(replacement)
 
 	newLine := make([]rune, 0, len(line)-match.EndCol+match.StartCol+len(replacementRunes))
@@ -194,12 +197,16 @@ func ReplaceAll(lines [][]rune, matches []Match, replacement string) [][]rune {
 			continue
 		}
 
+		if !validColumns(match.StartCol, match.EndCol, len(lines[row])) {
+			continue
+		}
+
 		line := newLines[row]
 		matchLen := match.EndCol - match.StartCol
 		adjustedStart := match.StartCol + offset[row]
 		adjustedEnd := adjustedStart + matchLen
 
-		if adjustedEnd > len(line) {
+		if !validColumns(adjustedStart, adjustedEnd, len(line)) {
 			continue
 		}
 
@@ -213,4 +220,8 @@ func ReplaceAll(lines [][]rune, matches []Match, replacement string) [][]rune {
 	}
 
 	return newLines
+}
+
+func validColumns(start, end, length int) bool {
+	return start >= 0 && start <= end && end <= length
 }

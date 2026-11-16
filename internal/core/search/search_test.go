@@ -125,3 +125,59 @@ func assertLines(t *testing.T, got [][]rune, want []string) {
 		t.Errorf("lines = %q, want %q", actual, want)
 	}
 }
+
+func TestReplacementBounds(t *testing.T) {
+	tests := []struct {
+		name  string
+		match Match
+		want  string
+	}{
+		{"negative start", Match{StartCol: -1, EndCol: 1}, "é猫!"},
+		{"negative end", Match{EndCol: -1}, "é猫!"},
+		{"inverted range", Match{StartCol: 2, EndCol: 1}, "é猫!"},
+		{"end past line", Match{EndCol: 4}, "é猫!"},
+		{"start past line", Match{StartCol: 4, EndCol: 4}, "é猫!"},
+		{"negative row", Match{StartRow: -1, EndRow: -1}, "é猫!"},
+		{"insert at end", Match{StartCol: 3, EndCol: 3}, "é猫!X"},
+		{"whole line", Match{EndCol: 3}, "X"},
+	}
+	for _, tt := range tests {
+		for _, all := range []bool{false, true} {
+			name := "single/"
+			if all {
+				name = "all/"
+			}
+			t.Run(name+tt.name, func(t *testing.T) {
+				lines := toRuneLines([]string{"é猫!"})
+				var got [][]rune
+				if all {
+					got = ReplaceAll(lines, []Match{tt.match}, "X")
+				} else {
+					got = Replace(lines, tt.match, "X")
+				}
+				assertLines(t, got, []string{tt.want})
+				assertLines(t, lines, []string{"é猫!"})
+			})
+		}
+	}
+}
+
+func TestReplaceAllBoundsWithOffsets(t *testing.T) {
+	tests := []struct {
+		name        string
+		matches     []Match
+		replacement string
+		want        string
+	}{
+		{"invalid match does not shift later matches", []Match{{StartCol: 2, EndCol: 1}, {StartCol: 2, EndCol: 3}}, "XX", "abXX"},
+		{"growth does not validate negative column", []Match{{EndCol: 1}, {StartCol: -1, EndCol: 0}, {StartCol: 2, EndCol: 3}}, "XX", "XXbXX"},
+		{"shrink skips negative adjusted column", []Match{{EndCol: 2}, {StartCol: 1, EndCol: 2}, {StartCol: 2, EndCol: 3}}, "", ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			lines := toRuneLines([]string{"abc"})
+			assertLines(t, ReplaceAll(lines, tt.matches, tt.replacement), []string{tt.want})
+			assertLines(t, lines, []string{"abc"})
+		})
+	}
+}
