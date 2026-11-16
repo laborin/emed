@@ -64,8 +64,8 @@ func (dm *EditorDialogManager) ShowSaveConflictDialog(
 
 	overwriteBtn := tview.NewButton("Overwrite").
 		SetSelectedFunc(func() {
-			onOverwrite()
 			modal.Close()
+			onOverwrite()
 		})
 	overwriteBtn.SetStyle(tcell.StyleDefault.Foreground(tcell.ColorWhite).Background(theme.Current.ModalBg))
 	overwriteBtn.SetActivatedStyle(tcell.StyleDefault.Foreground(tcell.ColorBlack).Background(tcell.ColorWhite))
@@ -85,8 +85,8 @@ func (dm *EditorDialogManager) ShowSaveConflictDialog(
 				counter++
 			}
 
-			onSaveAsCopy(copyPath)
 			modal.Close()
+			onSaveAsCopy(copyPath)
 		})
 	saveCopyBtn.SetStyle(tcell.StyleDefault.Foreground(tcell.ColorWhite).Background(theme.Current.ModalBg))
 	saveCopyBtn.SetActivatedStyle(tcell.StyleDefault.Foreground(tcell.ColorBlack).Background(tcell.ColorWhite))
@@ -194,16 +194,16 @@ func (dm *EditorDialogManager) ShowDeletedFileDialog(
 
 	createBtn := tview.NewButton("Create").
 		SetSelectedFunc(func() {
-			onCreate()
 			modal.Close()
+			onCreate()
 		})
 	createBtn.SetStyle(tcell.StyleDefault.Foreground(tcell.ColorWhite).Background(theme.Current.ModalBg))
 	createBtn.SetActivatedStyle(tcell.StyleDefault.Foreground(tcell.ColorBlack).Background(tcell.ColorWhite))
 
 	discardBtn := tview.NewButton("Discard").
 		SetSelectedFunc(func() {
-			onDiscard()
 			modal.Close()
+			onDiscard()
 		})
 	discardBtn.SetStyle(tcell.StyleDefault.Foreground(tcell.ColorWhite).Background(theme.Current.ModalBg))
 	discardBtn.SetActivatedStyle(tcell.StyleDefault.Foreground(tcell.ColorBlack).Background(tcell.ColorWhite))
@@ -355,4 +355,55 @@ func (dm *EditorDialogManager) ShowUnsavedChangesDialog(fileName string, onYes, 
 
 	modal.Show()
 	dm.app.SetFocus(yesButton)
+}
+
+// ShowSaveErrorDialog tells the user that saving filePath failed and why.
+func (dm *EditorDialogManager) ShowSaveErrorDialog(filePath string, saveErr error) {
+	if dm.app == nil {
+		return
+	}
+
+	config := EmModalConfig{
+		UseFixedSize:    true,
+		FixedWidth:      64,
+		FixedHeight:     12,
+		BackgroundColor: theme.Current.ModalBg,
+		BorderColor:     theme.Current.Border,
+		TitleColor:      theme.Current.Title,
+		Title:           " Save Failed ",
+		TitleAlign:      tview.AlignCenter,
+	}
+
+	modal, content := NewConfiguredModal(dm.app, config, true)
+	modal.SetPreviousRoot(GetMainAppRoot())
+
+	messageText := fmt.Sprintf(
+		"Could not save '%s'.\n\n%s\n\nYour changes are still in the editor.",
+		filepath.Base(filePath), saveErr.Error())
+
+	message := tview.NewTextView().
+		SetText(messageText).
+		SetTextAlign(tview.AlignCenter).
+		SetWordWrap(true)
+
+	okBtn := tview.NewButton("OK").
+		SetSelectedFunc(func() {
+			modal.Close()
+		})
+	okBtn.SetStyle(tcell.StyleDefault.Foreground(tcell.ColorWhite).Background(theme.Current.ModalBg))
+	okBtn.SetActivatedStyle(tcell.StyleDefault.Foreground(tcell.ColorBlack).Background(tcell.ColorWhite))
+
+	buttonsFlex := tview.NewFlex().SetDirection(tview.FlexColumn).
+		AddItem(nil, 0, 1, false).
+		AddItem(okBtn, 8, 0, true).
+		AddItem(nil, 0, 1, false)
+
+	content.
+		AddItem(nil, 1, 0, false).
+		AddItem(message, 0, 1, false).
+		AddItem(buttonsFlex, 1, 0, true).
+		AddItem(nil, 1, 0, false)
+
+	modal.Show()
+	dm.app.SetFocus(okBtn)
 }

@@ -100,40 +100,46 @@ func (b *TextBuffer) LoadFile(path string) error {
 	return nil
 }
 
-// SaveFile saves the buffer content to a file.
+// SaveFile saves the buffer content to a file. The buffer is marked clean
+// only when every write, the flush and the close succeed.
 func (b *TextBuffer) SaveFile(path string) error {
 	file, err := os.Create(path)
 	if err != nil {
 		return err
 	}
-	defer file.Close()
 
-	writer := bufio.NewWriter(file)
+	writeErr := b.writeTo(bufio.NewWriter(file))
+	closeErr := file.Close()
+	if writeErr != nil {
+		return writeErr
+	}
+	if closeErr != nil {
+		return closeErr
+	}
+
+	b.markClean()
+	return nil
+}
+
+func (b *TextBuffer) writeTo(writer *bufio.Writer) error {
 	for i, line := range b.lines {
-		_, err := writer.WriteString(string(line))
-		if err != nil {
+		if _, err := writer.WriteString(string(line)); err != nil {
 			return err
 		}
 		if i < len(b.lines)-1 {
-			_, err := writer.WriteString(b.lineEndings)
-			if err != nil {
+			if _, err := writer.WriteString(b.lineEndings); err != nil {
 				return err
 			}
 		}
 	}
 
 	if b.trailingNewline {
-		_, err := writer.WriteString(b.lineEndings)
-		if err != nil {
+		if _, err := writer.WriteString(b.lineEndings); err != nil {
 			return err
 		}
 	}
 
-	err = writer.Flush()
-	if err == nil {
-		b.markClean()
-	}
-	return err
+	return writer.Flush()
 }
 
 // SetContent sets the buffer content from a string.

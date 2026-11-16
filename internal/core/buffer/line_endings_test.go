@@ -89,3 +89,25 @@ func TestSetContentCRLineEndingsSavePreserved(t *testing.T) {
 		t.Fatalf("unexpected output: got %q want %q", string(data), input)
 	}
 }
+
+func TestSaveFileFailureKeepsBufferModified(t *testing.T) {
+	b := New()
+	b.SetContent("hello\n")
+	b.InsertText(0, 0, "x")
+	if !b.IsModified() {
+		t.Fatal("buffer should be modified after insert")
+	}
+
+	dir := t.TempDir()
+	notDir := filepath.Join(dir, "file")
+	if err := os.WriteFile(notDir, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := b.SaveFile(filepath.Join(notDir, "out.txt")); err == nil {
+		t.Fatal("expected an error saving under a regular file")
+	}
+	if !b.IsModified() {
+		t.Fatal("buffer must stay modified when the save fails")
+	}
+}

@@ -778,42 +778,59 @@ func (e *Editor) SaveCurrentFile() {
 		return
 	}
 
-	if true {
-		if tab.path == "" {
-			// TODO: Show save dialog
-			return
-		}
+	if tab.path == "" {
+		// TODO: Show save dialog
+		return
+	}
 
-		if tab.externallyModified {
-			// Check if file still exists
-			if _, err := os.Stat(tab.path); os.IsNotExist(err) {
-				if e.dialogManager != nil {
-					e.showDeletedFileDialog(tab)
-				}
-			} else {
-				if e.dialogManager != nil {
-					e.showSaveConflictDialog(tab)
-				}
-			}
-			return
+	if tab.externallyModified {
+		if _, err := os.Stat(tab.path); os.IsNotExist(err) {
+			e.showDeletedFileDialog(tab)
+		} else {
+			e.showSaveConflictDialog(tab)
 		}
+		return
+	}
 
-		err := tab.codeEditor.SaveFile(tab.path)
-		if err != nil {
-			// TODO: Show error
-			return
+	e.saveTab(tab, tab.path)
+}
+
+// saveTab writes the tab's buffer to path. On success the tab takes path,
+// is marked clean and onFileSaved fires. On failure the tab keeps its
+// path and dirty state, and the error is logged and shown to the user.
+func (e *Editor) saveTab(tab *EditorTab, path string) bool {
+	if err := tab.codeEditor.SaveFile(path); err != nil {
+		e.reportSaveError(path, err)
+		return false
+	}
+
+	if tab.path != path {
+		e.tabsMu.Lock()
+		if e.tabsByPath[tab.path] == tab {
+			delete(e.tabsByPath, tab.path)
 		}
+		e.tabsByPath[path] = tab
+		tab.path = path
+		e.tabsMu.Unlock()
+	}
+	tab.externallyModified = false
+	if info, err := os.Stat(path); err == nil {
+		tab.lastModTime = info.ModTime()
+	}
+	tab.modified = false
+	e.UpdateTabBar()
 
-		if info, err := os.Stat(tab.path); err == nil {
-			tab.lastModTime = info.ModTime()
-		}
+	if e.onFileSaved != nil {
+		e.onFileSaved(path)
+	}
+	return true
+}
 
-		tab.modified = false
-		e.UpdateTabBar()
-
-		if e.onFileSaved != nil {
-			e.onFileSaved(tab.path)
-		}
+// reportSaveError logs a failed save and tells the user about it.
+func (e *Editor) reportSaveError(path string, err error) {
+	logging.Error("Failed to save %s: %v", path, err)
+	if e.dialogManager != nil {
+		e.dialogManager.ShowSaveErrorDialog(path, err)
 	}
 }
 
@@ -931,33 +948,10 @@ func (e *Editor) showSaveConflictDialog(tab *EditorTab) {
 	e.dialogManager.ShowSaveConflictDialog(
 		tab.path,
 		func() {
-			tab.externallyModified = false
-			err := tab.codeEditor.SaveFile(tab.path)
-			if err == nil {
-				if info, err := os.Stat(tab.path); err == nil {
-					tab.lastModTime = info.ModTime()
-				}
-				tab.modified = false
-				e.UpdateTabBar()
-				if e.onFileSaved != nil {
-					e.onFileSaved(tab.path)
-				}
-			}
+			e.saveTab(tab, tab.path)
 		},
 		func(copyPath string) {
-			err := tab.codeEditor.SaveFile(copyPath)
-			if err == nil {
-				tab.path = copyPath
-				tab.externallyModified = false
-				tab.modified = false
-				if info, err := os.Stat(copyPath); err == nil {
-					tab.lastModTime = info.ModTime()
-				}
-				e.UpdateTabBar()
-				if e.onFileSaved != nil {
-					e.onFileSaved(copyPath)
-				}
-			}
+			e.saveTab(tab, copyPath)
 		},
 		func() {
 		},
@@ -1051,18 +1045,7 @@ func (e *Editor) showDeletedFileDialog(tab *EditorTab) {
 	e.dialogManager.ShowDeletedFileDialog(
 		tab.path,
 		func() {
-			tab.externallyModified = false
-			err := tab.codeEditor.SaveFile(tab.path)
-			if err == nil {
-				if info, err := os.Stat(tab.path); err == nil {
-					tab.lastModTime = info.ModTime()
-				}
-				tab.modified = false
-				e.UpdateTabBar()
-				if e.onFileSaved != nil {
-					e.onFileSaved(tab.path)
-				}
-			}
+			e.saveTab(tab, tab.path)
 		},
 		func() {
 			e.tabManager.RemoveTab(tab.id)
