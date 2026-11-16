@@ -4,7 +4,7 @@ Read these before changing anything:
 
 - [CONTRIBUTING.md](CONTRIBUTING.md): workflow, branches, Conventional Commits, tests, releases.
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): packages and design decisions.
-- [docs/ROADMAP.md](docs/ROADMAP.md): planned work.
+- [docs/ROADMAP.md](docs/ROADMAP.md): how planned work is organized (GitHub issues with priority labels).
 
 Rules:
 

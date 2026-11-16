@@ -36,7 +36,7 @@ The terminal emulator has probably been the most fun and the hardest part to imp
 - [x] Deeper Claude Code integration: diff approval modal, multiple sessions at the same time, session info on each diff.
 - [x] Terminal emulation hardening: wide chars (CJK/emoji), utf8 edge cases, clean scrollback history, system bell with blinking tab titles.
 - [x] Per project terminal starters (F12) and session restore of open editor tabs.
-- [ ] Next steps are in [docs/ROADMAP.md](docs/ROADMAP.md).
+- [ ] Next steps are tracked as [GitHub issues](https://github.com/laborin/emed/issues), see [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Screenshots
 Emed's initial view:

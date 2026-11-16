@@ -16,7 +16,7 @@ GOVULNCHECK   := go run golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION)
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS := -ldflags "-s -w -X github.com/laborin/emed/internal/config.version=$(VERSION)"
 
-# Lint only new code by default, the existing debt is tracked in docs/ROADMAP.md
+# Lint only new code by default, the existing debt is tracked in issue #8
 LINT_BASE ?= origin/main
 
 all: build

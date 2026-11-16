@@ -61,7 +61,7 @@ Dependency direction: `cmd` → `ui` → (`core`, `filemanager`, `terminal`, `gi
 
 ## Known risks
 
-- `internal/ui` has very big files (`codeeditor.go`, `layout.go`) with too many responsabilities; splitting them is in the roadmap.
-- Renamed directories keep a stale fsnotify watch until restart.
-- Modals do not stack in general, only diffs are protected by the queue.
+- `internal/ui` has very big files (`codeeditor.go`, `layout.go`) with too many responsabilities; splitting them is tracked in issue #12.
+- Renamed directories keep a stale fsnotify watch until restart (issue #9).
+- Modals do not stack in general, only diffs are protected by the queue (issue #16).
 - Terminal behavior can vary between terminal emulators.
