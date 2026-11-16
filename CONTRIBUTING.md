@@ -60,7 +60,7 @@ Release notes are generated from these titles, so write them for the users.
 
 ## Linting
 
-`make lint` runs golangci-lint (config in `.golangci.yml`) **only on code changed since `origin/main`**. The old code still have issues (see `make lint-all`), cleaning them is planned in [docs/ROADMAP.md](docs/ROADMAP.md). Rule: new or modified code must not add new issues.
+`make lint` runs golangci-lint (config in `.golangci.yml`) **only on code changed since `origin/main`**. The old code still have issues (see `make lint-all`), cleaning them is tracked in issue #8. Rule: new or modified code must not add new issues.
 
 ## Tests
 
@@ -77,7 +77,7 @@ Terminal emulation uses our fork [github.com/laborin/vt10x](https://github.com/l
 2. In emed: `go get github.com/laborin/vt10x@<commit>` and `go mod tidy`.
 3. Open one PR in emed that bumps the version and adapts the code. Mention the fork commit in the description.
 
-Dependabot does not update the fork, it is always bumped by hand.
+Dependabot ignores the fork, it is always bumped by hand. `tcell` and `tview` come in their own Dependabot PRs (not grouped) because their updates can change key handling and rendering: test them manually.
 
 ## Releases
 

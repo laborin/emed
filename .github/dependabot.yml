@@ -9,7 +9,13 @@ updates:
     groups:
       go-dependencies:
         patterns: ["*"]
-        exclude-patterns: ["github.com/laborin/vt10x"]
+        exclude-patterns:
+          - "github.com/laborin/vt10x"
+          - "github.com/gdamore/tcell/*"
+          - "github.com/rivo/tview"
+    ignore:
+      # Our fork, always bumped by hand
+      - dependency-name: "github.com/laborin/vt10x"
   - package-ecosystem: github-actions
     directory: /
     schedule:
