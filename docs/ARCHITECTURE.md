@@ -35,6 +35,7 @@ Dependency direction: `cmd` → `ui` → (`core`, `filemanager`, `terminal`, `gi
 ## Main design decisions
 
 - **Fixed layout.** Normal mode is the 3-panel layout; single file mode (`emed file.txt`) is a reduced editor-only layout and never creates `.emed/`.
+- **Search replacement bounds.** Invalid match ranges are ignored. Replace-all validates both original columns and columns shifted by earlier replacements.
 - **Buffer is the source of truth.** Soft line wrap is only a visual layer over real lines (cursor, mouse and scroll map through the wrap map), saved content is never changed by it.
 - **One diff viewer.** Claude diffs use the internal diff view. Diffs that arrive while another modal is open are queued and shown when the screen is free.
 - **Claude integration is local only.** The websocket server listens on `127.0.0.1`, checks the auth token before the upgrade, accepts several concurrent Claude sessions and removes stale lock files of dead emed processes.
