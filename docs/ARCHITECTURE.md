@@ -40,6 +40,7 @@ Dependency direction: `cmd` → `ui` → (`core`, `filemanager`, `terminal`, `gi
 - **Buffer is the source of truth.** Soft line wrap is only a visual layer over real lines (cursor, mouse and scroll map through the wrap map), saved content is never changed by it.
 - **One diff viewer.** Claude diffs use the internal diff view. Diffs that arrive while another modal is open are queued and shown when the screen is free.
 - **Claude integration is local only.** The websocket server listens on `127.0.0.1`, checks the auth token before the upgrade, accepts several concurrent Claude sessions and removes stale lock files of dead emed processes.
+- **One shutdown path.** Quit, `SIGINT`, `SIGTERM` and `SIGHUP` (terminal or SSH session closed) all run `Layout.Stop`, which can be called more than once: it logs unsaved buffers, saves the session, removes the Claude lock file and stops the terminal shells. After `SIGHUP` the terminal is not restored, because it is gone; emed exits with code 129.
 - **Path safety.** File operations use explicit containment checks (`core/pathutil`), not string prefixes.
 - **External changes.** fsnotify events are debounced; clean tabs reload, dirty tabs enter a conflict flow, renames are followed by pairing inodes.
 - **Modal focus.** Custom modal primitives embed `tview.Flex` (not `tview.Box`) so tview focus chain can be walked; otherwise focus gets stuck in the first widget.

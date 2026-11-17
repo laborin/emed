@@ -426,6 +426,15 @@ func (t *Terminal) CloseCurrentTab() {
 	}
 }
 
+// StopAll terminates every terminal process. Used on shutdown, so the shells
+// and the programs they run do not outlive emed.
+func (t *Terminal) StopAll() {
+	for id, emulator := range t.emulators {
+		emulator.Stop()
+		delete(t.emulators, id)
+	}
+}
+
 // GetView returns the root primitive for the terminal component.
 func (t *Terminal) GetView() tview.Primitive {
 	return t.container

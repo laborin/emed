@@ -57,6 +57,7 @@ type Layout struct {
 	fileWatcher *FileWatcher
 	stopTicker  chan bool
 	stopFocus   chan bool
+	stopOnce    sync.Once
 
 	focusedPanel int
 	lastFocus    tview.Primitive
@@ -1754,10 +1755,22 @@ func (l *Layout) launchStarter(s project.Starter) {
 }
 
 // Stop shuts down the layout and cleans up resources.
+// Stop saves the session and releases every resource the layout owns: the
+// Claude lock file and server, terminal processes, watchers and tickers.
+// It is safe to call more than once; only the first call does the work, so
+// the signal handler and the normal exit path can both call it.
 func (l *Layout) Stop() {
+	l.stopOnce.Do(l.stop)
+}
+
+func (l *Layout) stop() {
+	l.logUnsavedChanges()
 	l.saveSession()
 	if l.claudeIntegration != nil {
 		l.claudeIntegration.Stop()
+	}
+	if l.terminal != nil {
+		l.terminal.StopAll()
 	}
 	if l.fileWatcher != nil {
 		l.fileWatcher.Stop()
@@ -1774,6 +1787,15 @@ func (l *Layout) Stop() {
 	if l.statusBar != nil {
 		l.statusBar.Stop()
 	}
+}
+
+// logUnsavedChanges records buffers that are lost because emed exits
+// without a chance to ask, for example when the terminal hangs up.
+func (l *Layout) logUnsavedChanges() {
+	if l.editor == nil || !l.editor.HasUnsavedChanges() {
+		return
+	}
+	logging.Warn("exiting with unsaved changes; modified files with a path: %v", l.editor.GetModifiedFiles())
 }
 
 func (l *Layout) setupSingleFileWatcher(path string) {

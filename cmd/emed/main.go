@@ -105,6 +105,11 @@ func main() {
 	theme.Init(userConfig.UseTerminalBackground)
 	logging.Info("terminal background mode: %t", userConfig.UseTerminalBackground)
 
+	// Listen before the layout starts: it writes the Claude lock file, and a
+	// signal arriving after that must already go through the shutdown path.
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, shutdownSignals()...)
+
 	app := tview.NewApplication()
 	layout := ui.NewLayout(app, ui.LayoutOptions{
 		SingleFileMode: singleFileMode,
@@ -117,14 +122,11 @@ func main() {
 		logging.Info("ignoring --claude in single file mode")
 	}
 
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-
 	go func() {
-		<-sigChan
-		layout.Stop()
-		restoreTerminalState(app)
-		os.Exit(0)
+		sig := <-sigChan
+		code := handleShutdownSignal(sig, layout.Stop, func() { restoreTerminalState(app) })
+		logger.Close()
+		os.Exit(code)
 	}()
 
 	enablePaste := shouldEnableTerminalPaste()
@@ -149,6 +151,30 @@ func main() {
 	if code != 0 {
 		os.Exit(code)
 	}
+}
+
+// shutdownSignals returns the signals that run the clean shutdown path.
+// SIGHUP arrives when the terminal window or the SSH session closes; it is
+// left out when emed was started ignoring it (for example under nohup).
+func shutdownSignals() []os.Signal {
+	sigs := []os.Signal{os.Interrupt, syscall.SIGTERM}
+	if !signal.Ignored(syscall.SIGHUP) {
+		sigs = append(sigs, syscall.SIGHUP)
+	}
+	return sigs
+}
+
+// handleShutdownSignal runs the shutdown path for sig and returns the exit
+// code. After SIGHUP the terminal is gone, so it is not restored: writing to
+// it can fail or block, and there is nobody to see it.
+func handleShutdownSignal(sig os.Signal, stop func(), restoreTerminal func()) int {
+	logging.Info("received %v, shutting down", sig)
+	stop()
+	if sig == syscall.SIGHUP {
+		return 128 + int(syscall.SIGHUP)
+	}
+	restoreTerminal()
+	return 0
 }
 
 // runApp runs the UI loop and returns the process exit code. cleanup runs
