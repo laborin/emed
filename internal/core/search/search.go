@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 )
 
 // Match represents a single search match in the buffer.
@@ -77,16 +78,14 @@ func searchPlain(lines [][]rune, pattern string, options SearchOptions) []Match 
 	return matches
 }
 
-func searchRegex(lines [][]rune, pattern string, options SearchOptions) []Match {
-	var matches []Match
+// nonWordClass matches one rune that isWordRune rejects. Go's \b is ASCII only,
+// so whole word regex search uses this class instead.
+const nonWordClass = `[^\p{L}\p{Nd}_]`
 
+func searchRegex(lines [][]rune, pattern string, options SearchOptions) []Match {
 	flags := ""
 	if !options.CaseSensitive {
 		flags = "(?i)"
-	}
-
-	if options.WholeWord {
-		pattern = `\b` + pattern + `\b`
 	}
 
 	re, err := regexp.Compile(flags + pattern)
@@ -94,13 +93,31 @@ func searchRegex(lines [][]rune, pattern string, options SearchOptions) []Match 
 		return nil
 	}
 
+	if options.WholeWord {
+		// The pattern compiled alone, so it is balanced and safe to wrap. The
+		// trailing group requires a word boundary after the match, which lets
+		// the engine pick an alternative or a repetition that ends on one.
+		re = regexp.MustCompile(flags + `(` + pattern + `)(?:$|` + nonWordClass + `)`)
+	}
+
+	// Index of the submatch that holds the match itself: the whole match, or
+	// the first group when the trailing boundary is part of the regex.
+	group := 0
+	if options.WholeWord {
+		group = 1
+	}
+
+	var matches []Match
 	for row, line := range lines {
 		lineStr := string(line)
-		allMatches := re.FindAllStringIndex(lineStr, -1)
 
-		for _, match := range allMatches {
-			startCol := len([]rune(lineStr[:match[0]]))
-			endCol := len([]rune(lineStr[:match[1]]))
+		for _, loc := range re.FindAllStringSubmatchIndex(lineStr, -1) {
+			start, end := loc[2*group], loc[2*group+1]
+			startCol := utf8.RuneCountInString(lineStr[:start])
+			endCol := startCol + utf8.RuneCountInString(lineStr[start:end])
+			if options.WholeWord && !isWordBoundary(line, startCol, endCol) {
+				continue
+			}
 
 			matches = append(matches, Match{
 				StartRow: row,
@@ -129,21 +146,17 @@ func matchesAt(line, pattern []rune, pos int) bool {
 }
 
 func isWordBoundary(line []rune, start, end int) bool {
-	if start > 0 {
-		prevChar := line[start-1]
-		if unicode.IsLetter(prevChar) || unicode.IsDigit(prevChar) || prevChar == '_' {
-			return false
-		}
+	if start > 0 && isWordRune(line[start-1]) {
+		return false
 	}
-
-	if end < len(line) {
-		nextChar := line[end]
-		if unicode.IsLetter(nextChar) || unicode.IsDigit(nextChar) || nextChar == '_' {
-			return false
-		}
+	if end < len(line) && isWordRune(line[end]) {
+		return false
 	}
-
 	return true
+}
+
+func isWordRune(r rune) bool {
+	return unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_'
 }
 
 // Replace replaces text at the given match with replacement text.
