@@ -1281,11 +1281,17 @@ func (e *CodeEditor) scheduleHighlighterUpdate() {
 	}
 
 	e.highlightTimer = time.AfterFunc(150*time.Millisecond, func() {
-		e.updateHighlighter()
-		if e.app != nil {
-			e.app.QueueUpdateDraw(func() {})
-		}
+		e.runOnUI(e.updateHighlighter)
 	})
+}
+
+// runOnUI runs f on the UI goroutine and redraws. Timer and background
+// callbacks must use it to touch editor state. Without an app (tests that
+// don't run one) there is no UI goroutine, so f is dropped.
+func (e *CodeEditor) runOnUI(f func()) {
+	if e.app != nil {
+		e.app.QueueUpdateDraw(f)
+	}
 }
 
 func (e *CodeEditor) updateHighlighter() {
@@ -2037,45 +2043,45 @@ func (e *CodeEditor) scheduleBlameUpdate() {
 	}
 
 	e.blameTimer = time.AfterFunc(300*time.Millisecond, func() {
-		e.fetchBlameAndDisplay()
+		e.runOnUI(e.fetchBlameAndDisplay)
 	})
 }
 
+// fetchBlameAndDisplay runs on the UI goroutine. It reads the cursor line,
+// runs git blame in the background and applies the result back on the UI
+// goroutine if the cursor and file did not change meanwhile.
 func (e *CodeEditor) fetchBlameAndDisplay() {
-	e.blameMutex.Lock()
 	row := e.cursorRow
 	filePath := e.filePath
-	e.blameMutex.Unlock()
-
 	if filePath == "" {
 		return
 	}
 
-	lineNum := row + 1
-	blameInfo, err := git.GetBlameForLine(filePath, lineNum)
+	go func() {
+		blameInfo, err := git.GetBlameForLine(filePath, row+1)
+		e.runOnUI(func() {
+			if e.cursorRow != row || e.filePath != filePath {
+				return
+			}
+			e.showBlame(row, blameInfo, err)
+		})
+	}()
+}
 
+func (e *CodeEditor) showBlame(row int, blameInfo *git.BlameInfo, err error) {
 	e.blameMutex.Lock()
-	if e.cursorRow != row {
-		e.blameMutex.Unlock()
-		return
-	}
-
 	e.blameRow = row
-
 	if err != nil {
 		e.blameText = ""
-		e.ClearGhostTexts()
 	} else {
 		e.blameText = git.FormatBlameInfo(blameInfo)
-		e.ClearGhostTexts()
-		if e.blameText != "" {
-			e.AddGhostText(row, -1, e.blameText)
-		}
 	}
+	text := e.blameText
 	e.blameMutex.Unlock()
 
-	if e.app != nil {
-		e.app.QueueUpdateDraw(func() {})
+	e.ClearGhostTexts()
+	if text != "" {
+		e.AddGhostText(row, -1, text)
 	}
 }
 
