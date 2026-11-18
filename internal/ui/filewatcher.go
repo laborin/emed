@@ -259,6 +259,58 @@ func (fw *FileWatcher) removeDirectory(dir string) {
 	fw.watcher.Remove(dir)
 }
 
+// removeDirectoryTree drops the watches of dir and all its watched
+// subdirectories. inotify watches follow inodes, so after a move they would
+// keep reporting events under the old paths.
+func (fw *FileWatcher) removeDirectoryTree(dir string) {
+	prefix := dir + string(filepath.Separator)
+
+	fw.dirMu.Lock()
+	var stale []string
+	for path := range fw.watchedDirs {
+		if path == dir || strings.HasPrefix(path, prefix) {
+			stale = append(stale, path)
+			delete(fw.watchedDirs, path)
+		}
+	}
+	fw.dirMu.Unlock()
+
+	for _, path := range stale {
+		// The watch may be gone already (fsnotify drops it on IN_MOVE_SELF).
+		_ = fw.watcher.Remove(path)
+	}
+}
+
+// watchNewDirectory watches a directory that appeared in the tree, and its
+// subdirectories, since a directory moved in or created with mkdir -p may
+// already have content that produced no events.
+func (fw *FileWatcher) watchNewDirectory(dir string) {
+	relPath, err := filepath.Rel(fw.rootPath, dir)
+	if err != nil {
+		return
+	}
+	depth := strings.Count(relPath, string(filepath.Separator))
+	if depth >= fw.maxDepth || fw.shouldExclude(dir) {
+		return
+	}
+
+	fw.dirMu.Lock()
+	if len(fw.watchedDirs) >= fw.maxWatchedDirs || fw.watchedDirs[dir] {
+		fw.dirMu.Unlock()
+		return
+	}
+	fw.watchedDirs[dir] = true
+	fw.dirMu.Unlock()
+
+	if err := fw.watcher.Add(dir); err != nil {
+		fw.dirMu.Lock()
+		delete(fw.watchedDirs, dir)
+		fw.dirMu.Unlock()
+		return
+	}
+	fw.addShallowDirectories(dir, depth+1)
+}
+
 func (fw *FileWatcher) processEvents() {
 	eventBatch := make([]FileChange, 0)
 	batchMu := sync.Mutex{}
@@ -335,20 +387,7 @@ func (fw *FileWatcher) convertEvent(event fsnotify.Event) *FileChange {
 		changeType = FileCreated
 
 		if info, err := os.Stat(event.Name); err == nil && info.IsDir() {
-			relPath, _ := filepath.Rel(fw.rootPath, event.Name)
-			depth := strings.Count(relPath, string(filepath.Separator))
-
-			if depth < fw.maxDepth && !fw.shouldExclude(event.Name) {
-				fw.dirMu.Lock()
-				watchedCount := len(fw.watchedDirs)
-				if watchedCount < fw.maxWatchedDirs && !fw.watchedDirs[event.Name] {
-					fw.watchedDirs[event.Name] = true
-					fw.dirMu.Unlock()
-					fw.watcher.Add(event.Name)
-				} else {
-					fw.dirMu.Unlock()
-				}
-			}
+			fw.watchNewDirectory(event.Name)
 		}
 
 	case event.Op&fsnotify.Write == fsnotify.Write:
@@ -367,6 +406,7 @@ func (fw *FileWatcher) convertEvent(event fsnotify.Event) *FileChange {
 
 	case event.Op&fsnotify.Rename == fsnotify.Rename:
 		changeType = FileRenamed
+		fw.removeDirectoryTree(event.Name)
 
 	default:
 		return nil
