@@ -66,19 +66,6 @@ func isWatched(fw *FileWatcher, dir string) bool {
 	return fw.watchedDirs[dir]
 }
 
-// disableBlame stops the blame timer. It reads editor state from its own
-// goroutine, which the race detector flags when a reload happens meanwhile.
-func disableBlame(e *CodeEditor) {
-	e.blameMutex.Lock()
-	defer e.blameMutex.Unlock()
-
-	e.blameEnabled = false
-	if e.blameTimer != nil {
-		e.blameTimer.Stop()
-		e.blameTimer = nil
-	}
-}
-
 func mustMkdirAll(t *testing.T, path string) {
 	t.Helper()
 
@@ -150,7 +137,6 @@ func TestFileWatcherWatchesSubdirectoriesOfMovedInDirectory(t *testing.T) {
 func TestFileWatcherDirectoryRenameKeepsOpenTabInSync(t *testing.T) {
 	root := evalTempDir(t)
 	layout, _ := openForRenameTest(t, root, "src/pkg/a.go", "package pkg\n")
-	disableBlame(layout.editor.tabs[0].codeEditor)
 
 	_, batches := startTestWatcher(t, root)
 
